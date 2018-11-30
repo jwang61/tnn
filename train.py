@@ -1,3 +1,6 @@
+"""
+Script to train model
+"""
 import time
 import pickle
 import random
@@ -36,7 +39,6 @@ def train():
     with open(VOCAB_FILE, 'rb') as f:
         vocab = sorted(pickle.load(f))
 
-    # Creating a mapping from unique characters to indices
     char2idx = {u : i for i, u in enumerate(vocab)}
     idx2char = np.array(vocab)
     vocab_size = len(vocab)
@@ -69,7 +71,6 @@ def train():
         saver = tf.train.Saver(tf.global_variables())
         
         # TODO: Add restoring ckpt
-
         for epoch in range(EPOCHS):
             random.shuffle(data)
             start = time.time()

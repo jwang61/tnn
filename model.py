@@ -1,3 +1,6 @@
+"""
+Contains the class for the LSTM model
+"""
 import tensorflow as tf
 import numpy as np
 
@@ -7,15 +10,18 @@ EMBEDDING_DIM = 256
 
 # Number of LSTM units
 UNITS = [512, 512]
+
+# Gradient Clipping
 GRAD_CLIP = 5
 
 def softmax(x):
-    """Compute softmax values for each sets of scores in x."""
+    """(Found on stack overflow) Compute softmax values for each sets of scores in x."""
     e_x = np.exp(x - np.max(x))
     return e_x / e_x.sum()
+
 class Model():
+    """ LSTM Model with sampling function"""
     def __init__(self, vocab_size, batch_size_, max_tweet_len_):
-        #self.units = UNITS
         batch_size = batch_size_
         seq_len = max_tweet_len_
 
@@ -27,7 +33,6 @@ class Model():
 
         self.zero_state = rnn_cell.zero_state(batch_size, tf.float32)
 
-        # Convert each character id into a vector representation
         embedding_matrix = tf.get_variable('embedding_matrix', [vocab_size, EMBEDDING_DIM],
                                            initializer=tf.random_uniform_initializer(minval=-1.,
                                                                                      maxval=1.))
@@ -37,7 +42,6 @@ class Model():
                                            dtype=tf.float32)
 
         self.logits = tf.layers.dense(rnn_out, vocab_size, name='dense')
-        #self.prediction = tf.nn.softmax(logits)
 
         self.last_state = state
 
@@ -56,11 +60,15 @@ class Model():
         self.train_op = optimizer.apply_gradients(zip(grads, training_vars))
 
     def sample(self, sess, char2idx, idx2char, start_string="", temp=1, max_len=300):
-        # You can change the start string to experiment
+        """ 
+        Sampling function that return generated tweet.
+        Use start_string to change initial characters
+        Use temp < 1 for wilder guesses, temp > 1 for more rigid guesses
+        """
         start = '<' + start_string
-
         state = sess.run(self.zero_state)
 
+        # Setting up the initial state of the model based on start_string
         for char in start[:-1]:
             x = np.zeros((1, 1))
             x[0, 0] = char2idx[char]
@@ -69,7 +77,7 @@ class Model():
                                          {self.input_data : x, self.zero_state : state})
 
         char = start[-1]
-        ret_str = start
+        ret_str = start[1:]
 
         for _ in range(max_len):
             x = np.zeros((1, 1))
@@ -89,4 +97,4 @@ class Model():
             ret_str += next_
             char = next_
 
-        return ret_str[1:]
+        return ret_str
