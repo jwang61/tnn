@@ -9,11 +9,15 @@ EMBEDDING_DIM = 256
 UNITS = [512, 512]
 GRAD_CLIP = 5
 
+def softmax(x):
+    """Compute softmax values for each sets of scores in x."""
+    e_x = np.exp(x - np.max(x))
+    return e_x / e_x.sum()
 class Model():
-    def __init__(self, vocab_size, batch_size_, max_tweet_len_, training=True):
+    def __init__(self, vocab_size, batch_size_, max_tweet_len_):
         #self.units = UNITS
-        batch_size = batch_size_ if training else 1
-        seq_len = max_tweet_len_ - 1 if training else 1
+        batch_size = batch_size_
+        seq_len = max_tweet_len_
 
         self.input_data = tf.placeholder(tf.int32, [batch_size, seq_len], name="Placeholder")
         self.targets = tf.placeholder(tf.int32, [batch_size, seq_len], name="Target")
@@ -32,14 +36,14 @@ class Model():
         rnn_out, state = tf.nn.dynamic_rnn(rnn_cell, embedding, initial_state=self.zero_state,
                                            dtype=tf.float32)
 
-        logits = tf.layers.dense(rnn_out, vocab_size, name='dense')
-        self.prediction = tf.nn.softmax(logits)
+        self.logits = tf.layers.dense(rnn_out, vocab_size, name='dense')
+        #self.prediction = tf.nn.softmax(logits)
 
         self.last_state = state
 
         self.loss = tf.reduce_mean(
             tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.targets,
-                                                           logits=logits,
+                                                           logits=self.logits,
                                                            name="loss"))
 
         training_vars = tf.trainable_variables()
@@ -51,22 +55,38 @@ class Model():
         optimizer = tf.train.AdamOptimizer(self.lr)
         self.train_op = optimizer.apply_gradients(zip(grads, training_vars))
 
-    def sample(self, sess, char2idx, idx2char):
+    def sample(self, sess, char2idx, idx2char, start_string="", temp=1, max_len=300):
         # You can change the start string to experiment
-        start_string = '<'
+        start = '<' + start_string
 
-        char = start_string
-        ret_str = start_string
-        for _ in range(MAX_TWEET_LEN):
+        state = sess.run(self.zero_state)
+
+        for char in start[:-1]:
             x = np.zeros((1, 1))
             x[0, 0] = char2idx[char]
 
-            prediction = sess.run(self.prediction, {self.input_data : x})
-            p = prediction[0]
-            idx = np.argmax(p)
+            prediction, state = sess.run([self.logits, self.last_state],
+                                         {self.input_data : x, self.zero_state : state})
+
+        char = start[-1]
+        ret_str = start
+
+        for _ in range(max_len):
+            x = np.zeros((1, 1))
+            x[0, 0] = char2idx[char]
+
+            prediction, state = sess.run([self.logits, self.last_state],
+                                         {self.input_data : x, self.zero_state : state})
+            p = softmax(np.squeeze(prediction) * temp)
+
+            cumsum = np.cumsum(p)
+            rand = np.random.rand(1) * np.sum(p)
+            idx = np.searchsorted(cumsum, rand[0])
 
             next_ = idx2char[idx]
+            if next_ == ">":
+                break
             ret_str += next_
             char = next_
 
-        return ret_str
+        return ret_str[1:]

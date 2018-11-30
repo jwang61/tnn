@@ -7,7 +7,7 @@ import tensorflow as tf
 import numpy as np
 from model import Model
 
-# TODO: ADD ARGPARSE
+# TODO: Add Argparse
 TRAIN = True
 
 DATA_FILE = "tweets.txt"
@@ -19,9 +19,9 @@ SPLIT_CHAR = ">"
 LOG_DIR = "logs"
 
 # --- Training Params ---
-EPOCHS = 15
+EPOCHS = 20
 LEARNING_RATE = 0.001
-DECAY_RATE = 0.90
+DECAY_RATE = 0.92
 BATCH_SIZE = 32
 MAX_TWEET_LEN = 313
 
@@ -55,7 +55,7 @@ def train():
     num_tweets = len(data)
     batch_count = num_tweets//BATCH_SIZE
 
-    model = Model(vocab_size, BATCH_SIZE, MAX_TWEET_LEN)
+    model = Model(vocab_size, BATCH_SIZE, MAX_TWEET_LEN-1)
 
     if not os.path.isdir(SAVE_DIR):
         os.makedirs(SAVE_DIR)
@@ -68,7 +68,7 @@ def train():
         sess.run(tf.global_variables_initializer())
         saver = tf.train.Saver(tf.global_variables())
         
-        # TODO: ADD RESTORE
+        # TODO: Add restoring ckpt
 
         for epoch in range(EPOCHS):
             random.shuffle(data)
@@ -77,7 +77,7 @@ def train():
             sess.run(tf.assign(model.lr, lr))
 
             for i in range(batch_count):
-                sess.run(model.zero_state)
+                state = sess.run(model.zero_state)
                 batch_input = []
                 batch_target = []
                 for j in range(BATCH_SIZE):
@@ -85,8 +85,10 @@ def train():
                     batch_target.append(data[i*BATCH_SIZE + j][1])
                 input_ = np.array(batch_input)
                 target_ = np.array(batch_target)
-                summary, loss, _ = sess.run([summary_ops, model.loss, model.train_op],
-                                            {model.input_data : input_, model.targets : target_})
+                feed_dict = {model.input_data : input_, model.targets : target_,
+                             model.zero_state : state}
+                summary, state, loss, _ = sess.run([summary_ops, model.last_state,
+                                                    model.loss, model.train_op], feed_dict)
 
                 summary_writer.add_summary(summary, epoch*batch_count + i)
 
@@ -96,7 +98,7 @@ def train():
                     
 
             print('Time taken for 1 epoch {} sec, lr : {}\n'.format(time.time() - start, lr))
-        saver.save(sess, ckpt_path, EPOCH*batch_count)
+        saver.save(sess, ckpt_path, EPOCHS*batch_count)
         #tf.train.write_graph(sess.graph, "./", "model2.pb", as_text=False)
 
 if __name__ == "__main__":

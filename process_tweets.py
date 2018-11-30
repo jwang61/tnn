@@ -81,7 +81,7 @@ with open("tweets.txt", 'w') as f:
                 tweet_fixed[i] = WACKO_MAP[ordinal]
                 continue
             if ordinal > 127000 or ordinal in EMOJIS:
-                tweet_fixed[i] =  REPLACE_UNICODE
+                tweet_fixed[i] = REPLACE_UNICODE
 
         tweet_fixed = "".join(tweet_fixed)
     

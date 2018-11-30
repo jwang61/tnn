@@ -1,29 +1,33 @@
 import pickle
 import tensorflow as tf
 import numpy as np
+from model import Model
 
-MODEL_FILE = "newmodel.pb"
+
+SAVE_DIR = "save"
 VOCAB_FILE = "vocab.pkl"
 
 START_CHAR = "<"
 
-with open(VOCAB_FILE, 'rb') as f:
-    vocab = sorted(pickle.load(f))
+def sample():
+    with open(VOCAB_FILE, 'rb') as f:
+        vocab = sorted(pickle.load(f))
 
-# Creating a mapping from unique characters to indices
-char2idx = {u : i for i, u in enumerate(vocab)}
-idx2char = np.array(vocab)
-vocab_size = len(vocab)
+    # Creating a mapping from unique characters to indices
+    char2idx = {u : i for i, u in enumerate(vocab)}
+    idx2char = np.array(vocab)
+    vocab_size = len(vocab)
 
-graph_def = tf.GraphDef()
-with tf.gfile.Open(MODEL_FILE, 'rb') as f:
-    graph_def.ParseFromString(f.read())
-
-with tf.Graph().as_default() as graph:
-    # Placeholder Substitution
-    tf.import_graph_def(graph_def, name="")
-
+    model = Model(vocab_size, 1, 1)
     with tf.Session() as sess:
-        #TODO: run session
-        print("done")
-    
+        init = tf.global_variables_initializer()
+        sess.run(init)
+        saver = tf.train.Saver(tf.global_variables())
+        ckpt = tf.train.get_checkpoint_state(SAVE_DIR)
+        if ckpt and ckpt.model_checkpoint_path:
+            saver.restore(sess, ckpt.model_checkpoint_path)
+            tweet = model.sample(sess, char2idx, idx2char)
+            print(tweet)
+
+if __name__ == "__main__":
+    sample()
